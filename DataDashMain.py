@@ -1,9 +1,17 @@
 import pygame
 import random
 import math
+from sys import exit
 from enum import Enum
 
-(width, height) = (800, 800)
+# initialize the game
+pygame.init()
+
+display_height = 600
+display_width = display_height + 100
+border = 10
+(width, height) = (display_width, display_height)
+title_font = pygame.font.Font('font/Pixeltype.ttf', 100)
 
 class States(Enum):
     INTRO = 0
@@ -35,16 +43,14 @@ class Player(pygame.sprite.Sprite):
             self.sprite_index = 3
             if self.rect.y > 0:
                 self.rect.y -= 300 * dt
-                if self.rect.top < 10:
-                    self.rect.y = 10
+                if self.rect.top < border:
+                    self.rect.y = border
         if keys[pygame.K_DOWN]:
             self.sprite_index = 2
-            if self.rect.bottom < height - 10:
+            if self.rect.bottom < height - border:
                 self.rect.y += 300 * dt
-                if height - 10 <= self.rect.bottom:
-                    self.rect.bottom = height - 10
-                # if self.rect.y > height - sprite_height - 10:
-                #     self.rect.y = height - sprite_height - 10
+                if height - border <= self.rect.bottom:
+                    self.rect.bottom = height - border
         if keys[pygame.K_LEFT]:
             self.sprite_index = 1
             if self.rect.x > 0:
@@ -53,10 +59,10 @@ class Player(pygame.sprite.Sprite):
                     self.rect.x = 0
         if keys[pygame.K_RIGHT]:
             self.sprite_index = 0
-            if self.rect.right < width - 10:
+            if self.rect.right < width - border:
                 self.rect.x += 300 * dt
-                if self.rect.x >= width - 10:
-                    self.rect.x = width - 10
+                if self.rect.x >= width - border:
+                    self.rect.x = width - border
         # updates cat image
         self.image = self.sprite_directions[self.sprite_index]
 
@@ -64,15 +70,15 @@ class Player(pygame.sprite.Sprite):
         self.player_input()
 
 def display_intro():
-    screen.fill((94, 129, 162))
+    screen.fill((178, 190, 181))
+    title_text = title_font.render('Data Dash', False, 'White')
+    title_text_rect = title_text.get_rect(center=(display_width/2, 100))
+    screen.blit(title_text, title_text_rect)
 
 
 def display_selection():
     screen.fill((94, 129, 162))
 
-
-# initialize the game
-pygame.init()
 
 # Code for creating window and its features
 background_colour = (0, 0, 0)
@@ -120,8 +126,6 @@ while True:
 
     if state == States.INTRO:
         display_intro()
-        player.draw(screen)
-        player.update()
     elif state == States.SELECTION:
         display_selection()
     elif state == States.ARRAYLIST:
