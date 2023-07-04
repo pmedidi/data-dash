@@ -11,7 +11,9 @@ display_height = 600
 display_width = display_height + 100
 border = 10
 (width, height) = (display_width, display_height)
-intro_buttons = []
+# intro_buttons = []
+buttons = []
+
 
 title_font = pygame.font.Font('font/Pixeltype.ttf', 100)
 button_font = pygame.font.Font('font/Pixeltype.ttf', 64)
@@ -21,6 +23,13 @@ class States(Enum):
     INTRO = 0
     SELECTION = 1
     ARRAYLIST = 2
+
+
+# uses buttons array and creates an array for each state inside the buttons array
+def create_button_array():
+    for state in States:
+        buttons.append([])
+
 
 class Player(pygame.sprite.Sprite):
     def __init__(self):  # constructor
@@ -78,7 +87,7 @@ class Player(pygame.sprite.Sprite):
 # i think its straightforward except for the onepress stuff i explain below
 # pls lmk if you understand
 class Button():
-    def __init__(self, x, y, width, height, buttonText='Button', onclickFunction=None, onePress=False, level=None):
+    def __init__(self, x, y, width, height, buttonText='Button', onclickFunction=None, button_state=None, onePress=False):
         self.x = x
         self.y = y
         self.width = width
@@ -87,7 +96,6 @@ class Button():
         # if one press is true -> as long as you hold it down, the button will call the function
         self.onePress = onePress
         self.alreadyPressed = False
-        self.level = level
 
         self.fillColors = {
             'default': '#f5f5f5',
@@ -97,7 +105,8 @@ class Button():
         self.button_surface = pygame.Surface((self.width, self.height))
         self.button_rect = pygame.Rect(self.x, self.y, self.width, self.height)
         self.button_text = button_font.render(buttonText, False, 'Black')
-        intro_buttons.append(self)
+        # intro_buttons.append(self)
+        buttons[button_state.value].append(self)
 
     def process(self):
         mouse_position = pygame.mouse.get_pos()
@@ -129,10 +138,10 @@ def display_intro():
     title_text_rect = title_text.get_rect(center=(display_width / 2, 100))
     screen.blit(title_text, title_text_rect)
 
-    if not intro_buttons:
-        intro_buttons.append(Button(100, 400, 500, 100, 'Button One (onePress)', myFunc))
+    if not buttons[States.INTRO.value]:
+        buttons[States.INTRO.value].append(Button(100, 400, 500, 100, 'Button One (onePress)', myFunc, States.INTRO))
 
-    process_buttons(intro_buttons)
+    process_buttons(buttons[States.INTRO.value])
 
 
 def myFunc():
@@ -157,7 +166,7 @@ pygame.display.set_caption('DATA DASH!')
 # fill the screen with a color to wipe away anything from the last frame
 # screen.fill(background_colour)
 state = States.INTRO
-# prev_state = None
+create_button_array()
 
 player = pygame.sprite.GroupSingle()
 player.add(Player())
