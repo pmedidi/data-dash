@@ -11,7 +11,11 @@ display_height = 600
 display_width = display_height + 100
 border = 10
 (width, height) = (display_width, display_height)
+intro_buttons = []
+
 title_font = pygame.font.Font('font/Pixeltype.ttf', 100)
+button_font = pygame.font.Font('font/Pixeltype.ttf', 64)
+
 
 class States(Enum):
     INTRO = 0
@@ -69,11 +73,75 @@ class Player(pygame.sprite.Sprite):
     def update(self):
         self.player_input()
 
+
+# i got this from somewhere online just look up 'pygame button'
+# i think its straightforward except for the onepress stuff i explain below
+# pls lmk if you understand
+class Button():
+    def __init__(self, x, y, width, height, buttonText='Button', onclickFunction=None, onePress=False, level=None):
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.onclickFunction = onclickFunction
+        # if one press is true -> as long as you hold it down, the button will call the function
+        self.onePress = onePress
+        self.alreadyPressed = False
+        self.level = level
+
+        self.fillColors = {
+            'default': '#f5f5f5',
+            'hover': '#e8e8e8',
+            'clicked': '#d1d1d1',
+        }
+        self.button_surface = pygame.Surface((self.width, self.height))
+        self.button_rect = pygame.Rect(self.x, self.y, self.width, self.height)
+        self.button_text = button_font.render(buttonText, False, 'Black')
+        intro_buttons.append(self)
+
+    def process(self):
+        mouse_position = pygame.mouse.get_pos()
+        self.button_surface.fill(self.fillColors['default'])
+        if self.button_rect.collidepoint(mouse_position):
+            self.button_surface.fill(self.fillColors['hover'])
+            if pygame.mouse.get_pressed(num_buttons=3)[0]:
+                self.button_surface.fill(self.fillColors['clicked'])
+                if self.onePress:  # i have no idea what onePress and alreadyPress does but is ok
+                    self.onclickFunction()
+                elif not self.alreadyPressed:
+                    self.onclickFunction()
+                    self.alreadyPressed = True
+            else:
+                self.alreadyPressed = False
+
+        # blit text onto surface
+        self.button_surface.blit(self.button_text, [
+            self.button_rect.width/2 - self.button_text.get_rect().width/2,
+            self.button_rect.height/2 - self.button_text.get_rect().height/2
+        ])
+        # blit surface onto screen
+        screen.blit(self.button_surface, self.button_rect)
+
+
 def display_intro():
-    screen.fill((178, 190, 181))
+    screen.fill((178, 190, 181))  # off gray color
     title_text = title_font.render('Data Dash', False, 'White')
-    title_text_rect = title_text.get_rect(center=(display_width/2, 100))
+    title_text_rect = title_text.get_rect(center=(display_width / 2, 100))
     screen.blit(title_text, title_text_rect)
+
+    if not intro_buttons:
+        intro_buttons.append(Button(100, 400, 500, 100, 'Button One (onePress)', myFunc))
+
+    process_buttons(intro_buttons)
+
+
+def myFunc():
+    print('button pressed')
+
+
+def process_buttons(buttons):
+    for button in buttons:
+        button.process()
 
 
 def display_selection():
@@ -89,6 +157,7 @@ pygame.display.set_caption('DATA DASH!')
 # fill the screen with a color to wipe away anything from the last frame
 # screen.fill(background_colour)
 state = States.INTRO
+# prev_state = None
 
 player = pygame.sprite.GroupSingle()
 player.add(Player())
@@ -125,7 +194,9 @@ while True:
             exit()  # ends code so pygame.display.update() does not get called, producing error
 
     if state == States.INTRO:
+        # prev_state = state
         display_intro()
+
     elif state == States.SELECTION:
         display_selection()
     elif state == States.ARRAYLIST:
@@ -152,6 +223,4 @@ while True:
 
     # flip() the display to put your work on the screen
     pygame.display.flip()
-    dt = clock.tick(60) / 1000
-
-pygame.quit()
+    clock.tick(60)
