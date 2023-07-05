@@ -164,6 +164,13 @@ def display_selection():
     screen.fill((94, 129, 162))
 
 
+def display_arraylist(player):
+    # this will fill the background screen with all black as initialized at the top of the program
+    screen.fill(background_colour)
+    player.draw(screen)
+    player.update()
+
+
 # function that reassigns state to arraylist state
 def to_arraylist():
     global state
@@ -173,8 +180,6 @@ def to_arraylist():
 # initialize the game
 pygame.init()
 create_button_array()
-
-
 
 state = States.INTRO
 
@@ -221,6 +226,9 @@ while True:
         if event.type == pygame.QUIT:
             pygame.quit()  # pygame.quit() uninitialized everything from pygame.init()
             exit()  # ends code so pygame.display.update() does not get called, producing error
+        elif event.type == pygame.KEYDOWN and state == States.ARRAYLIST:
+            if event.key == pygame.K_ESCAPE:
+                state = States.INTRO
 
     # determines state
     if state == States.INTRO:
@@ -228,10 +236,7 @@ while True:
     elif state == States.SELECTION:
         display_selection()
     elif state == States.ARRAYLIST:
-        # this will fill the background screen with all black as initialized at the top of the program
-        screen.fill(background_colour)
-        player.draw(screen)
-        player.update()
+        display_arraylist(player)
 
         # this part is the logic for the timer after the program is executed. it will check if timer_expired is True
         # if it is True then the players can/will start moving
