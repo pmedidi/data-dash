@@ -1,19 +1,22 @@
 import pygame
-import random
-import math
+from random import randint
 from sys import exit
 from enum import Enum
 
 # global variables
 # 2d array of buttons for each level/State
 buttons = []
+obstacles = []
 
 # screen and border numbers
 display_height = 600
-display_width = display_height + 100
+display_width = display_height + 300
 border = 10
 (width, height) = (display_width, display_height)
-
+default_obstacle_size = (55, 55)
+obstacle_border = default_obstacle_size[0]
+num_columns = (display_width - (border * 2)) / default_obstacle_size[0]
+num_rows = (display_height - (border * 2)) / default_obstacle_size[0]
 
 class States(Enum):
     INTRO = 0
@@ -126,12 +129,41 @@ class Button():
         screen.blit(self.button_surface, self.button_rect)
 
 
+class Obstacles():
+    def __init__(self, x, y, scale=False, obstacle_state=None):
+        self.x = x
+        self.y = y
+        self.scale = scale
+        rock_image = pygame.image.load('images/rock.png').convert_alpha()
+        self.obst_image = pygame.transform.scale(rock_image, default_obstacle_size)
+        self.obstacle_state = obstacle_state
+
+        if randint(0, 1):
+            self.obst_image = pygame.transform.flip(self.obst_image, True, False)
+        if scale:
+            self.obst_image = pygame.transform.scale2x(self.obst_image)
+        self.obst_rect = self.obst_image.get_rect(center=(self.x, self.y))
+        obstacles[obstacle_state.value].append(self)
+
+    def process(self):
+        # blit surface onto screen
+        screen.blit(self.obst_image, self.obst_rect)
+
+
+def display_obstacles(obstacles):
+    for rock in obstacles:
+        rock.process()
+
+
 # uses buttons array and creates an array for each state inside the buttons array
 # each array in buttons[] represents the buttons in each state/level/page
 def create_button_array():
     global buttons
+    global obstacles
+
     for state in States:
         buttons.append([])
+        obstacles.append([])
 
 
 # processes every button in the button list passed through
@@ -166,10 +198,13 @@ def display_selection():
 
 def display_arraylist(player):
     # this will fill the background screen with all black as initialized at the top of the program
-    screen.fill(background_colour)
+    screen.fill((24, 133, 67))
     player.draw(screen)
     player.update()
 
+    if not obstacles[States.ARRAYLIST.value]:
+        rock1 = Obstacles(55, 100, False, States.ARRAYLIST)
+    display_obstacles(obstacles[States.ARRAYLIST.value])
 
 # function that reassigns state to arraylist state
 def to_arraylist():
@@ -206,11 +241,11 @@ clock = pygame.time.Clock()
 dt = 0
 
 # initialize the monster's position randomly but at least 50 spaces away from the player (this was the part)
-min_distance = 50
-max_distance = min(screen.get_width(), screen.get_height()) / 2 - min_distance
-angle = random.uniform(0, 2 * math.pi)
-distance = random.uniform(min_distance, max_distance)
-monster_position = player_position + pygame.Vector2(math.cos(angle), math.sin(angle)) * distance
+# min_distance = 50
+# max_distance = min(screen.get_width(), screen.get_height()) / 2 - min_distance
+# angle = random.uniform(0, 2 * math.pi)
+# distance = random.uniform(min_distance, max_distance)
+# monster_position = player_position + pygame.Vector2(math.cos(angle), math.sin(angle)) * distance
 
 
 # Timer so that the player can have a few seconds to get mentally ready before the chase
@@ -247,9 +282,9 @@ while True:
 
         # this condition is the logic behind the monster. you add to the monsters position depending
         # on the player's position
-        if timer_expired:
-            # Adjust number getting multiplied to the dt at the end to control the speed of the monster
-            monster_position += (player_position - monster_position) * dt * 1  # <- this number
+        # if timer_expired:
+        #     # Adjust number getting multiplied to the dt at the end to control the speed of the monster
+        #     monster_position += (player_position - monster_position) * dt * 1  # <- this number
 
     # flip() the display to put your work on the screen
     pygame.display.flip()
