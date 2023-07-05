@@ -4,19 +4,15 @@ import math
 from sys import exit
 from enum import Enum
 
-# initialize the game
-pygame.init()
+# global variables
+# 2d array of buttons for each level/State
+buttons = []
 
+# screen and border numbers
 display_height = 600
 display_width = display_height + 100
 border = 10
 (width, height) = (display_width, display_height)
-# intro_buttons = []
-buttons = []
-
-
-title_font = pygame.font.Font('font/Pixeltype.ttf', 100)
-button_font = pygame.font.Font('font/Pixeltype.ttf', 64)
 
 
 class States(Enum):
@@ -25,16 +21,11 @@ class States(Enum):
     ARRAYLIST = 2
 
 
-# uses buttons array and creates an array for each state inside the buttons array
-def create_button_array():
-    for state in States:
-        buttons.append([])
-
-
+# Player class used to make the cat/player and currently only handles player input and updates location
 class Player(pygame.sprite.Sprite):
     def __init__(self):  # constructor
         super().__init__()
-        # initialize my sprites images to variables
+        # sprite images and scaling
         right_cat = pygame.image.load('images/player/RightCat.png').convert_alpha()
         right_cat = pygame.transform.scale2x(right_cat)
         left_cat = pygame.image.load('images/player/LeftCat.png').convert_alpha()
@@ -50,6 +41,7 @@ class Player(pygame.sprite.Sprite):
         self.image = self.sprite_directions[self.sprite_index]
         self.rect = self.image.get_rect(midbottom=(80, 300))
 
+    # reads user input and updates the cat's position and image accordingly
     def player_input(self):
         keys = pygame.key.get_pressed()
         if keys[pygame.K_UP]:
@@ -79,13 +71,14 @@ class Player(pygame.sprite.Sprite):
         # updates cat image
         self.image = self.sprite_directions[self.sprite_index]
 
+    # updates player
     def update(self):
         self.player_input()
 
 
-# i got this from somewhere online just look up 'pygame button'
-# i think its straightforward except for the onepress stuff i explain below
-# pls lmk if you understand
+# Button class used to create buttons for the game
+# button_state -> State enum that the button belongs in
+# onePress -> I THINK true means it runs for as long as its held down
 class Button():
     def __init__(self, x, y, width, height, buttonText='Button', onclickFunction=None, button_state=None, onePress=False):
         self.x = x
@@ -103,11 +96,12 @@ class Button():
             'clicked': '#d1d1d1',
         }
         self.button_surface = pygame.Surface((self.width, self.height))
+        # self.height = self.button_surface.get_height()
         self.button_rect = pygame.Rect(self.x, self.y, self.width, self.height)
         self.button_text = button_font.render(buttonText, False, 'Black')
-        # intro_buttons.append(self)
         buttons[button_state.value].append(self)
 
+    # checks to see if the mouse 'collides' with the button
     def process(self):
         mouse_position = pygame.mouse.get_pos()
         self.button_surface.fill(self.fillColors['default'])
@@ -132,6 +126,21 @@ class Button():
         screen.blit(self.button_surface, self.button_rect)
 
 
+# uses buttons array and creates an array for each state inside the buttons array
+# each array in buttons[] represents the buttons in each state/level/page
+def create_button_array():
+    global buttons
+    for state in States:
+        buttons.append([])
+
+
+# processes every button in the button list passed through
+def process_buttons(buttons):
+    for button in buttons:
+        button.process()
+
+
+# function to display the intro screen
 def display_intro():
     screen.fill((178, 190, 181))  # off gray color
     title_text = title_font.render('Data Dash', False, 'White')
@@ -139,23 +148,39 @@ def display_intro():
     screen.blit(title_text, title_text_rect)
 
     if not buttons[States.INTRO.value]:
-        buttons[States.INTRO.value].append(Button(100, 400, 500, 100, 'Button One (onePress)', myFunc, States.INTRO))
+        button_width = 500
+        x_button_pos = (display_width / 2) - (button_width / 2)
+        buttons[States.INTRO.value].append(Button(int(x_button_pos), 200, button_width, 70, 'Continue',
+                                                  to_arraylist, States.INTRO))
+        buttons[States.INTRO.value].append(Button(int(x_button_pos), 300, button_width, 70, 'Level Select',
+                                                  to_arraylist, States.INTRO))
+        buttons[States.INTRO.value].append(Button(int(x_button_pos), 400, button_width, 70, 'Exit', exit, States.INTRO))
 
     process_buttons(buttons[States.INTRO.value])
 
 
-def myFunc():
-    print('button pressed')
-
-
-def process_buttons(buttons):
-    for button in buttons:
-        button.process()
-
-
+# function to display the selection screen
 def display_selection():
     screen.fill((94, 129, 162))
 
+
+# function that reassigns state to arraylist state
+def to_arraylist():
+    global state
+    state = States.ARRAYLIST
+
+
+# initialize the game
+pygame.init()
+create_button_array()
+
+
+
+state = States.INTRO
+
+# fonts
+title_font = pygame.font.Font('font/Pixeltype.ttf', 100)
+button_font = pygame.font.Font('font/Pixeltype.ttf', 64)
 
 # Code for creating window and its features
 background_colour = (0, 0, 0)
@@ -163,19 +188,17 @@ background_colour = (0, 0, 0)
 screen = pygame.display.set_mode((width, height))
 pygame.display.set_caption('DATA DASH!')
 
-# fill the screen with a color to wipe away anything from the last frame
-# screen.fill(background_colour)
-state = States.INTRO
-create_button_array()
 
+# player intialization
 player = pygame.sprite.GroupSingle()
 player.add(Player())
 
-clock = pygame.time.Clock()
-dt = 0
-
 # initialize player position, dividing width and height by 2 will place it in the center
 player_position = pygame.Vector2(screen.get_width() / 2, screen.get_height() / 2)
+
+# clock
+clock = pygame.time.Clock()
+dt = 0
 
 # initialize the monster's position randomly but at least 50 spaces away from the player (this was the part)
 min_distance = 50
@@ -184,9 +207,6 @@ angle = random.uniform(0, 2 * math.pi)
 distance = random.uniform(min_distance, max_distance)
 monster_position = player_position + pygame.Vector2(math.cos(angle), math.sin(angle)) * distance
 
-
-# Need to do this to have it display something in the first place (initialization)
-current_sprite = 'sprite1'
 
 # Timer so that the player can have a few seconds to get mentally ready before the chase
 # So both the player and monster will be paused for the first 3 seconds after the program is executed
@@ -202,10 +222,9 @@ while True:
             pygame.quit()  # pygame.quit() uninitialized everything from pygame.init()
             exit()  # ends code so pygame.display.update() does not get called, producing error
 
+    # determines state
     if state == States.INTRO:
-        # prev_state = state
         display_intro()
-
     elif state == States.SELECTION:
         display_selection()
     elif state == States.ARRAYLIST:
@@ -213,7 +232,6 @@ while True:
         screen.fill(background_colour)
         player.draw(screen)
         player.update()
-
 
         # this part is the logic for the timer after the program is executed. it will check if timer_expired is True
         # if it is True then the players can/will start moving
@@ -228,8 +246,6 @@ while True:
             # Adjust number getting multiplied to the dt at the end to control the speed of the monster
             monster_position += (player_position - monster_position) * dt * 1  # <- this number
 
-
-
     # flip() the display to put your work on the screen
     pygame.display.flip()
-    clock.tick(60)
+    dt = clock.tick(60) / 1000.0
