@@ -18,6 +18,7 @@ obstacle_border = default_obstacle_size[0]
 num_columns = (display_width - (border * 2)) / default_obstacle_size[0]
 num_rows = (display_height - (border * 2)) / default_obstacle_size[0]
 
+
 class States(Enum):
     INTRO = 0
     SELECTION = 1
@@ -31,9 +32,13 @@ class Directions(Enum):
     RIGHT = 3
 
 
+class Obstacles(Enum):
+    ROCK = 0
+    BOX = 1
+
+
 # Player class used to make the cat/player and currently only handles player input and updates location
 class Player(pygame.sprite.Sprite):
-    global state
     def __init__(self):  # constructor
         super().__init__()
         # sprite images and scaling
@@ -48,7 +53,7 @@ class Player(pygame.sprite.Sprite):
 
         self.sprite_directions = [right_cat, left_cat, down_cat, up_cat]
         self.sprite_index = 0
-        self.speed = 200
+        self.speed = 300
 
         self.image = self.sprite_directions[self.sprite_index]
         self.rect = self.image.get_rect(midbottom=(80, 300))
@@ -56,73 +61,95 @@ class Player(pygame.sprite.Sprite):
     # reads user input and updates the cat's position and image accordingly
     def player_input(self):
         keys = pygame.key.get_pressed()
+        displacement = self.speed * dt      # distance player will move
         if keys[pygame.K_UP]:
             self.sprite_index = 3
-            if (self.rect.top - self.speed * dt) < border:
+            if (self.rect.top - displacement) < border:
                 self.rect.top = border
-            elif not collision(self, obstacles[state.value], Directions.UP):
-                self.rect.y -= 150 * dt
+            elif not self.collision(obstacles[state.value], Directions.UP, displacement):
+                self.rect.y -= displacement
         elif keys[pygame.K_DOWN]:
             self.sprite_index = 2
-            if (self.rect.bottom + self.speed * dt) > height - border:
+            if (self.rect.bottom + displacement) > height - border:
                 self.rect.bottom = height - border
-            elif not collision(self, obstacles[state.value], Directions.DOWN):
-                self.rect.y += self.speed * dt
+            elif not self.collision(obstacles[state.value], Directions.DOWN, displacement):
+                self.rect.y += displacement
         elif keys[pygame.K_LEFT]:
             self.sprite_index = 1
-            if (self.rect.left - self.speed * dt) < border:
+            if (self.rect.left - displacement) < border:
                 self.rect.left = border
-            elif not collision(self, obstacles[state.value], Directions.LEFT):
-                self.rect.x -= self.speed * dt
+            elif not self.collision(obstacles[state.value], Directions.LEFT, displacement):
+                self.rect.x -= displacement
         elif keys[pygame.K_RIGHT]:
             self.sprite_index = 0
-            if (self.rect.right + self.speed * dt) > width - border:
+            if (self.rect.right + displacement) > width - border:
                 self.rect.right = width - border
-            elif not collision(self, obstacles[state.value], Directions.RIGHT):
-                self.rect.x += self.speed * dt
-
+            elif not self.collision(obstacles[state.value], Directions.RIGHT, displacement):
+                self.rect.x += displacement
+        if keys[pygame.K_SPACE]:
+            self.closest_crate(obstacles[state.value])
         # updates cat image
         self.image = self.sprite_directions[self.sprite_index]
+
+    def collision(self, obstacles, direction, displacement):
+        player_rect = self.rect
+        for obstacle in obstacles:
+            obst_rect = obstacle.rect
+            if obst_rect.left < player_rect.right < obst_rect.right \
+                    or obst_rect.left < player_rect.left < obst_rect.right or obst_rect.centerx == player_rect.centerx:
+                if direction == Directions.UP:
+                    y_pos = player_rect.top - displacement
+                    if obst_rect.top < y_pos < obst_rect.bottom:
+                        player_rect.top = obst_rect.bottom
+                        return True
+                elif direction == Directions.DOWN:
+                    y_pos = player_rect.bottom + displacement
+                    if obst_rect.bottom > y_pos > obst_rect.top:
+                        player_rect.bottom = obst_rect.top
+                        return True
+            elif obst_rect.top < player_rect.top < obst_rect.bottom \
+                    or obst_rect.top < player_rect.bottom < obst_rect.bottom or obst_rect.centery == player_rect.centery:
+                if direction == Directions.RIGHT:
+                    x_pos = player_rect.right + displacement
+                    if obst_rect.left < x_pos < obst_rect.right:
+                        player_rect.right = obst_rect.left
+                        return True
+                elif direction == Directions.LEFT:
+                    x_pos = player_rect.left - displacement
+                    if obst_rect.right > x_pos > obst_rect.left:
+                        player_rect.left = obst_rect.right
+                        return True
+        return False
+
+    def closest_crate(self, obstacles):
+        box_obstacles = filter(lambda o: o.obstacle_type == Obstacles.BOX, obstacles)
+        nearest_box = None
+
+        for box in box_obstacles:
+            if box.rect.left < self.rect.centerx < box.rect.right:
+                if box.rect.top == self.rect.bottom or box.rect.bottom == self.rect.top:
+                    nearest_box = box
+            elif box.rect.top < self.rect.centery < box.rect.bottom:
+                if box.rect.left == self.rect.right or box.rect.right == self.rect.left:
+                    nearest_box = box
+
+        if nearest_box:
+            print(nearest_box.number)
+        else:
+            print("NONE")
+
 
     # updates player
     def update(self):
         self.player_input()
 
 
-def collision(player, obstacles, direction):
-    player_rect = player.rect
-    for obstacle in obstacles:
-        obst_rect = obstacle.rect
-        if obst_rect.left < player_rect.right < obst_rect.right or obst_rect.left < player_rect.left < obst_rect.right:
-            if direction == Directions.UP:
-                y_pos = player_rect.top - player.speed * dt
-                if obst_rect.top < y_pos < obst_rect.bottom:
-                    player_rect.top = obst_rect.bottom
-                    return True
-            if direction == Directions.DOWN:
-                y_pos = player_rect.bottom + player.speed * dt
-                if obst_rect.bottom > y_pos > obst_rect.top:
-                    player_rect.bottom = obst_rect.top
-                    return True
-        elif obst_rect.top < player_rect.top < obst_rect.bottom or obst_rect.top < player_rect.bottom < obst_rect.bottom:
-            if direction == Directions.RIGHT:
-                x_pos = player_rect.right + player.speed * dt
-                if obst_rect.left < x_pos < obst_rect.right:
-                    player_rect.right = obst_rect.left
-                    return True
-            if direction == Directions.LEFT:
-                x_pos = player_rect.left - player.speed * dt
-                if obst_rect.right > x_pos > obst_rect.left:
-                    player_rect.left = obst_rect.right
-                    return True
-    return False
-
-
 # Button class used to create buttons for the game
 # button_state -> State enum that the button belongs in
 # onePress -> I THINK true means it runs for as long as its held down
 class Button:
-    def __init__(self, x, y, width, height, buttonText='Button', onclickFunction=None, button_state=None, onePress=False):
+    def __init__(self, x, y, width, height, buttonText='Button', onclickFunction=None, button_state=None,
+                 onePress=False):
         self.x = x
         self.y = y
         self.width = width
@@ -161,62 +188,73 @@ class Button:
 
         # blit text onto surface
         self.button_surface.blit(self.button_text, [
-            self.button_rect.width/2 - self.button_text.get_rect().width/2,
-            self.button_rect.height/2 - self.button_text.get_rect().height/2
+            self.button_rect.width / 2 - self.button_text.get_rect().width / 2,
+            self.button_rect.height / 2 - self.button_text.get_rect().height / 2
         ])
         # blit surface onto screen
         screen.blit(self.button_surface, self.button_rect)
 
 
 class Obstacle(pygame.sprite.Sprite):
-    def __init__(self, x, y, scale=False, obstacle_state=None):
+    def __init__(self, x, y, scale=False, obstacle_type=Obstacles.ROCK, obstacle_state=None, number=None):
         super().__init__()
         self.x = x
         self.y = y
         self.scale = scale
-        rock_image = pygame.image.load('images/rock.png').convert_alpha()
-        self.obst_image = pygame.transform.scale(rock_image, default_obstacle_size)
+        self.img = pygame.image.load('images/rock.png').convert_alpha()
+        self.number = number
+        self.obstacle_type = obstacle_type
         self.obstacle_state = obstacle_state
 
-        if randint(0, 1):
-            self.obst_image = pygame.transform.flip(self.obst_image, True, False)
+        if obstacle_type == Obstacles.ROCK:
+            if randint(0, 1):
+                self.img = pygame.transform.flip(self.img, True, False)
+        if obstacle_type == Obstacles.BOX:
+            self.img = pygame.image.load('images/crates/crate.png').convert_alpha()
+            self.img = pygame.transform.scale(self.img, default_obstacle_size)
+            if number is not None:
+                num_img = pygame.image.load('images/crates/three.png').convert_alpha()
+                if number == 4:
+                    num_img = pygame.image.load('images/crates/four.png').convert_alpha()
+                num_img = pygame.transform.scale(num_img, default_obstacle_size)
+                img_surface = pygame.Surface(default_obstacle_size)
+                img_surface.blit(self.img, (0, 0))
+                img_surface.blit(num_img, (0, 0))
+                self.img = img_surface
+
         if scale:
-            self.obst_image = pygame.transform.scale(self.obst_image, (110, 110))
+            self.img = pygame.transform.scale(self.img, (110, 110))
+        else:
+            self.img = pygame.transform.scale(self.img, default_obstacle_size)
 
-        self.rect = self.obst_image.get_rect(topleft=(self.x, self.y))
-
-        # obstacles[obstacle_state.value].add(self)
+        self.rect = self.img.get_rect(topleft=(self.x, self.y))
         obstacles[obstacle_state.value].append(self)
 
     def process(self):
         # blit surface onto screen
-        screen.blit(self.obst_image, self.rect)
-
-    def update_rect(self):
-        self.rect.center = (self.x, self.y)
-
-
-def display_obstacles(obstacles):
-    for rock in obstacles:
-        rock.process()
+        screen.blit(self.img, self.rect)
 
 
 # uses buttons array and creates an array for each state inside the buttons array
 # each array in buttons[] represents the buttons in each state/level/page
-def create_button_array():
+def create_button_and_obst_array():
     global buttons
     global obstacles
 
     for state in States:
         buttons.append([])
-        # obstacles.append(pygame.sprite.Group())
         obstacles.append([])
 
 
 # processes every button in the button list passed through
-def process_buttons(buttons):
+def display_buttons(buttons):
     for button in buttons:
         button.process()
+
+
+def display_obstacles(obstacles):
+    for rock in obstacles:
+        rock.process()
 
 
 # function to display the intro screen
@@ -235,7 +273,7 @@ def display_intro():
                                                   to_arraylist, States.INTRO))
         buttons[States.INTRO.value].append(Button(int(x_button_pos), 400, button_width, 70, 'Exit', exit, States.INTRO))
 
-    process_buttons(buttons[States.INTRO.value])
+    display_buttons(buttons[States.INTRO.value])
 
 
 # function to display the selection screen
@@ -250,8 +288,11 @@ def display_arraylist(player):
     player.update()
 
     if not obstacles[States.ARRAYLIST.value]:
-        rock1 = Obstacle(65, 100, False, States.ARRAYLIST)
-        rock2 = Obstacle(175, 210, True, States.ARRAYLIST)
+        rock1 = Obstacle(65, 100, False, Obstacles.ROCK, States.ARRAYLIST)
+        rock2 = Obstacle(175, 155, True, Obstacles.ROCK, States.ARRAYLIST)
+        crate1 = Obstacle(285, 265, False, Obstacles.BOX, States.ARRAYLIST, 3)
+        crate1 = Obstacle(340, 265, False, Obstacles.BOX, States.ARRAYLIST, 4)
+        crate1 = Obstacle(395, 265, False, Obstacles.BOX, States.ARRAYLIST)
     display_obstacles(obstacles[States.ARRAYLIST.value])
 
 
@@ -263,7 +304,7 @@ def to_arraylist():
 
 # initialize the game
 pygame.init()
-create_button_array()
+create_button_and_obst_array()
 
 state = States.INTRO
 
@@ -277,7 +318,6 @@ background_colour = (0, 0, 0)
 screen = pygame.display.set_mode((width, height))
 pygame.display.set_caption('DATA DASH!')
 
-
 # player initialization
 player = pygame.sprite.GroupSingle()
 player.add(Player())
@@ -288,14 +328,6 @@ player_position = pygame.Vector2(screen.get_width() / 2, screen.get_height() / 2
 # clock
 clock = pygame.time.Clock()
 dt = 0
-
-# initialize the monster's position randomly but at least 50 spaces away from the player (this was the part)
-# min_distance = 50
-# max_distance = min(screen.get_width(), screen.get_height()) / 2 - min_distance
-# angle = random.uniform(0, 2 * math.pi)
-# distance = random.uniform(min_distance, max_distance)
-# monster_position = player_position + pygame.Vector2(math.cos(angle), math.sin(angle)) * distance
-
 
 # Timer so that the player can have a few seconds to get mentally ready before the chase
 # So both the player and monster will be paused for the first 3 seconds after the program is executed
@@ -321,19 +353,6 @@ while True:
         display_selection()
     elif state == States.ARRAYLIST:
         display_arraylist(player)
-
-        # this part is the logic for the timer after the program is executed. it will check if timer_expired is True
-        # if it is True then the players can/will start moving
-        if not timer_expired:
-            timer_elapsed = pygame.time.get_ticks() - timer_start
-            if timer_elapsed >= timer_duration:
-                timer_expired = True
-
-        # this condition is the logic behind the monster. you add to the monsters position depending
-        # on the player's position
-        # if timer_expired:
-        #     # Adjust number getting multiplied to the dt at the end to control the speed of the monster
-        #     monster_position += (player_position - monster_position) * dt * 1  # <- this number
 
     # flip() the display to put your work on the screen
     pygame.display.flip()
