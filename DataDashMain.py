@@ -24,22 +24,31 @@ class States(Enum):
     ARRAYLIST = 2
 
 
+class Directions(Enum):
+    UP = 0
+    DOWN = 1
+    LEFT = 2
+    RIGHT = 3
+
+
 # Player class used to make the cat/player and currently only handles player input and updates location
 class Player(pygame.sprite.Sprite):
+    global state
     def __init__(self):  # constructor
         super().__init__()
         # sprite images and scaling
         right_cat = pygame.image.load('images/player/RightCat.png').convert_alpha()
-        right_cat = pygame.transform.scale2x(right_cat)
+        right_cat = pygame.transform.scale(right_cat, default_obstacle_size)
         left_cat = pygame.image.load('images/player/LeftCat.png').convert_alpha()
-        left_cat = pygame.transform.scale2x(left_cat)
+        left_cat = pygame.transform.scale(left_cat, default_obstacle_size)
         down_cat = pygame.image.load('images/player/DownCat.png').convert_alpha()
-        down_cat = pygame.transform.scale2x(down_cat)
+        down_cat = pygame.transform.scale(down_cat, default_obstacle_size)
         up_cat = pygame.image.load('images/player/UpCat.png').convert_alpha()
-        up_cat = pygame.transform.scale2x(up_cat)
+        up_cat = pygame.transform.scale(up_cat, default_obstacle_size)
 
         self.sprite_directions = [right_cat, left_cat, down_cat, up_cat]
         self.sprite_index = 0
+        self.speed = 200
 
         self.image = self.sprite_directions[self.sprite_index]
         self.rect = self.image.get_rect(midbottom=(80, 300))
@@ -49,28 +58,29 @@ class Player(pygame.sprite.Sprite):
         keys = pygame.key.get_pressed()
         if keys[pygame.K_UP]:
             self.sprite_index = 3
-            if self.rect.y > 0:
-                self.rect.y -= 300 * dt
-                if self.rect.top < border:
-                    self.rect.y = border
-        if keys[pygame.K_DOWN]:
+            if (self.rect.top - self.speed * dt) < border:
+                self.rect.top = border
+            elif not collision(self, obstacles[state.value], Directions.UP):
+                self.rect.y -= 150 * dt
+        elif keys[pygame.K_DOWN]:
             self.sprite_index = 2
-            if self.rect.bottom < height - border:
-                self.rect.y += 300 * dt
-                if height - border <= self.rect.bottom:
-                    self.rect.bottom = height - border
-        if keys[pygame.K_LEFT]:
+            if (self.rect.bottom + self.speed * dt) > height - border:
+                self.rect.bottom = height - border
+            elif not collision(self, obstacles[state.value], Directions.DOWN):
+                self.rect.y += self.speed * dt
+        elif keys[pygame.K_LEFT]:
             self.sprite_index = 1
-            if self.rect.x > 0:
-                self.rect.x -= 300 * dt
-                if self.rect.x < 0:
-                    self.rect.x = 0
-        if keys[pygame.K_RIGHT]:
+            if (self.rect.left - self.speed * dt) < border:
+                self.rect.left = border
+            elif not collision(self, obstacles[state.value], Directions.LEFT):
+                self.rect.x -= self.speed * dt
+        elif keys[pygame.K_RIGHT]:
             self.sprite_index = 0
-            if self.rect.right < width - border:
-                self.rect.x += 300 * dt
-                if self.rect.x >= width - border:
-                    self.rect.x = width - border
+            if (self.rect.right + self.speed * dt) > width - border:
+                self.rect.right = width - border
+            elif not collision(self, obstacles[state.value], Directions.RIGHT):
+                self.rect.x += self.speed * dt
+
         # updates cat image
         self.image = self.sprite_directions[self.sprite_index]
 
@@ -79,10 +89,39 @@ class Player(pygame.sprite.Sprite):
         self.player_input()
 
 
+def collision(player, obstacles, direction):
+    player_rect = player.rect
+    for obstacle in obstacles:
+        obst_rect = obstacle.rect
+        if obst_rect.left < player_rect.right < obst_rect.right or obst_rect.left < player_rect.left < obst_rect.right:
+            if direction == Directions.UP:
+                y_pos = player_rect.top - player.speed * dt
+                if obst_rect.top < y_pos < obst_rect.bottom:
+                    player_rect.top = obst_rect.bottom
+                    return True
+            if direction == Directions.DOWN:
+                y_pos = player_rect.bottom + player.speed * dt
+                if obst_rect.bottom > y_pos > obst_rect.top:
+                    player_rect.bottom = obst_rect.top
+                    return True
+        elif obst_rect.top < player_rect.top < obst_rect.bottom or obst_rect.top < player_rect.bottom < obst_rect.bottom:
+            if direction == Directions.RIGHT:
+                x_pos = player_rect.right + player.speed * dt
+                if obst_rect.left < x_pos < obst_rect.right:
+                    player_rect.right = obst_rect.left
+                    return True
+            if direction == Directions.LEFT:
+                x_pos = player_rect.left - player.speed * dt
+                if obst_rect.right > x_pos > obst_rect.left:
+                    player_rect.left = obst_rect.right
+                    return True
+    return False
+
+
 # Button class used to create buttons for the game
 # button_state -> State enum that the button belongs in
 # onePress -> I THINK true means it runs for as long as its held down
-class Button():
+class Button:
     def __init__(self, x, y, width, height, buttonText='Button', onclickFunction=None, button_state=None, onePress=False):
         self.x = x
         self.y = y
@@ -129,8 +168,9 @@ class Button():
         screen.blit(self.button_surface, self.button_rect)
 
 
-class Obstacles():
+class Obstacle(pygame.sprite.Sprite):
     def __init__(self, x, y, scale=False, obstacle_state=None):
+        super().__init__()
         self.x = x
         self.y = y
         self.scale = scale
@@ -141,13 +181,19 @@ class Obstacles():
         if randint(0, 1):
             self.obst_image = pygame.transform.flip(self.obst_image, True, False)
         if scale:
-            self.obst_image = pygame.transform.scale2x(self.obst_image)
-        self.obst_rect = self.obst_image.get_rect(center=(self.x, self.y))
+            self.obst_image = pygame.transform.scale(self.obst_image, (110, 110))
+
+        self.rect = self.obst_image.get_rect(topleft=(self.x, self.y))
+
+        # obstacles[obstacle_state.value].add(self)
         obstacles[obstacle_state.value].append(self)
 
     def process(self):
         # blit surface onto screen
-        screen.blit(self.obst_image, self.obst_rect)
+        screen.blit(self.obst_image, self.rect)
+
+    def update_rect(self):
+        self.rect.center = (self.x, self.y)
 
 
 def display_obstacles(obstacles):
@@ -163,6 +209,7 @@ def create_button_array():
 
     for state in States:
         buttons.append([])
+        # obstacles.append(pygame.sprite.Group())
         obstacles.append([])
 
 
@@ -203,8 +250,10 @@ def display_arraylist(player):
     player.update()
 
     if not obstacles[States.ARRAYLIST.value]:
-        rock1 = Obstacles(55, 100, False, States.ARRAYLIST)
+        rock1 = Obstacle(65, 100, False, States.ARRAYLIST)
+        rock2 = Obstacle(175, 210, True, States.ARRAYLIST)
     display_obstacles(obstacles[States.ARRAYLIST.value])
+
 
 # function that reassigns state to arraylist state
 def to_arraylist():
@@ -229,7 +278,7 @@ screen = pygame.display.set_mode((width, height))
 pygame.display.set_caption('DATA DASH!')
 
 
-# player intialization
+# player initialization
 player = pygame.sprite.GroupSingle()
 player.add(Player())
 
