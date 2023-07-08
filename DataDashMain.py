@@ -122,7 +122,7 @@ class Player(pygame.sprite.Sprite):
         return False
 
     def closest_crate(self, obstacles):
-        box_obstacles = filter(lambda o: o.obstacle_type == Obstacles.BOX, obstacles)
+        box_obstacles = filter(lambda o: isinstance(o, Box), obstacles)
         nearest_box = None
 
         for box in box_obstacles:
@@ -195,44 +195,81 @@ class Button:
         screen.blit(self.button_surface, self.button_rect)
 
 
-class Obstacle(pygame.sprite.Sprite):
-    def __init__(self, x, y, scale=False, obstacle_type=Obstacles.ROCK, obstacle_state=None, number=None):
-        super().__init__()
+class Obstacle:
+    def __init__(self, x, y, obstacle_state=None):
         self.x = x
         self.y = y
-        self.scale = scale
-        self.img = pygame.image.load('images/rock.png').convert_alpha()
-        self.number = number
-        self.obstacle_type = obstacle_type
+        # self.number = number
         self.obstacle_state = obstacle_state
 
-        if obstacle_type == Obstacles.ROCK:
-            if randint(0, 1):
-                self.img = pygame.transform.flip(self.img, True, False)
-        if obstacle_type == Obstacles.BOX:
-            self.img = pygame.image.load('images/crates/crate.png').convert_alpha()
-            self.img = pygame.transform.scale(self.img, default_obstacle_size)
-            if number is not None:
-                num_img = pygame.image.load('images/crates/three.png').convert_alpha()
-                if number == 4:
-                    num_img = pygame.image.load('images/crates/four.png').convert_alpha()
-                num_img = pygame.transform.scale(num_img, default_obstacle_size)
-                img_surface = pygame.Surface(default_obstacle_size)
-                img_surface.blit(self.img, (0, 0))
-                img_surface.blit(num_img, (0, 0))
-                self.img = img_surface
+        self.img = pygame.image.load('images/rock.png').convert_alpha()
+        self.rect = self.img.get_rect(topleft=(self.x, self.y))
+        obstacles[obstacle_state.value].append(self)
+
+        # if obstacle_type == Obstacles.ROCK:
+        #     if randint(0, 1):
+        #         self.img = pygame.transform.flip(self.img, True, False)
+        # if obstacle_type == Obstacles.BOX:
+        #     self.img = pygame.image.load('images/crates/crate.png').convert_alpha()
+        #     self.img = pygame.transform.scale(self.img, default_obstacle_size)
+        #     if number is not None:
+        #         num_img = pygame.image.load('images/crates/three.png').convert_alpha()
+        #         if number == 4:
+        #             num_img = pygame.image.load('images/crates/four.png').convert_alpha()
+        #         num_img = pygame.transform.scale(num_img, default_obstacle_size)
+        #         img_surface = pygame.Surface(default_obstacle_size)
+        #         img_surface.blit(self.img, (0, 0))
+        #         img_surface.blit(num_img, (0, 0))
+        #         self.img = img_surface
+
+        # if scale:
+        #     self.img = pygame.transform.scale(self.img, (110, 110))
+        # else:
+        #     self.img = pygame.transform.scale(self.img, default_obstacle_size)
+        #
+        # self.rect = self.img.get_rect(topleft=(self.x, self.y))
+        # obstacles[obstacle_state.value].append(self)
+
+    def process(self):
+        # blit surface onto screen
+        screen.blit(self.img, self.rect)
+
+
+class Rock(Obstacle):
+    def __init__(self, x, y, obstacle_state=None, scale=False):
+        super().__init__(x, y, obstacle_state)
+        self.scale = scale
 
         if scale:
             self.img = pygame.transform.scale(self.img, (110, 110))
         else:
             self.img = pygame.transform.scale(self.img, default_obstacle_size)
 
-        self.rect = self.img.get_rect(topleft=(self.x, self.y))
-        obstacles[obstacle_state.value].append(self)
+        if randint(0, 1):
+            self.img = pygame.transform.flip(self.img, True, False)
 
-    def process(self):
-        # blit surface onto screen
-        screen.blit(self.img, self.rect)
+        self.rect = self.img.get_rect(topleft=(self.x, self.y))
+
+
+class Box(Obstacle):
+    def __init__(self, x, y, obstacle_state=None, number=None):
+        super().__init__(x, y, obstacle_state)
+        self.number = number
+        self.img = pygame.image.load('images/crates/crate.png').convert_alpha()
+        self.img = pygame.transform.scale(self.img, default_obstacle_size)
+
+        if number is not None:
+            num_img = pygame.image.load('images/crates/three.png').convert_alpha()
+            if number == 4:
+                num_img = pygame.image.load('images/crates/four.png').convert_alpha()
+
+            num_img = pygame.transform.scale(num_img, default_obstacle_size)
+            img_surface = pygame.Surface(default_obstacle_size)
+            img_surface.blit(self.img, (0, 0))
+            img_surface.blit(num_img, (0, 0))
+            self.img = img_surface
+
+        self.rect = self.img.get_rect(topleft=(self.x, self.y))
 
 
 # uses buttons array and creates an array for each state inside the buttons array
@@ -288,11 +325,11 @@ def display_arraylist(player):
     player.update()
 
     if not obstacles[States.ARRAYLIST.value]:
-        rock1 = Obstacle(65, 100, False, Obstacles.ROCK, States.ARRAYLIST)
-        rock2 = Obstacle(175, 155, True, Obstacles.ROCK, States.ARRAYLIST)
-        crate1 = Obstacle(285, 265, False, Obstacles.BOX, States.ARRAYLIST, 3)
-        crate1 = Obstacle(340, 265, False, Obstacles.BOX, States.ARRAYLIST, 4)
-        crate1 = Obstacle(395, 265, False, Obstacles.BOX, States.ARRAYLIST)
+        rock1 = Rock(65, 100, States.ARRAYLIST)
+        rock2 = Rock(175, 155, States.ARRAYLIST, True)
+        crate1 = Box(285, 265, States.ARRAYLIST, 3)
+        crate1 = Box(340, 265, States.ARRAYLIST, 4)
+        crate1 = Box(395, 265, States.ARRAYLIST)
     display_obstacles(obstacles[States.ARRAYLIST.value])
 
 
