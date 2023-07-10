@@ -54,6 +54,7 @@ class Player(pygame.sprite.Sprite):
         self.sprite_directions = [right_cat, left_cat, down_cat, up_cat]
         self.sprite_index = 0
         self.speed = 300
+        self.box_held = None
 
         self.image = self.sprite_directions[self.sprite_index]
         self.rect = self.image.get_rect(midbottom=(80, 300))
@@ -61,7 +62,7 @@ class Player(pygame.sprite.Sprite):
     # reads user input and updates the cat's position and image accordingly
     def player_input(self):
         keys = pygame.key.get_pressed()
-        displacement = self.speed * dt      # distance player will move
+        displacement = self.speed * dt    # distance player will move
         if keys[pygame.K_UP]:
             self.sprite_index = 3
             if (self.rect.top - displacement) < border:
@@ -86,8 +87,9 @@ class Player(pygame.sprite.Sprite):
                 self.rect.right = width - border
             elif not self.collision(obstacles[state.value], Directions.RIGHT, displacement):
                 self.rect.x += displacement
+
         if keys[pygame.K_SPACE]:
-            self.closest_crate(obstacles[state.value])
+            self.process_pick_up()
         # updates cat image
         self.image = self.sprite_directions[self.sprite_index]
 
@@ -138,6 +140,45 @@ class Player(pygame.sprite.Sprite):
         else:
             print("NONE")
 
+        return nearest_box
+
+    def process_pick_up(self):
+        # True if player is 'on' a box - False if player is not 'on' a box
+        nearest_box = self.closest_crate(obstacles[state.value])
+        if nearest_box == self.box_held:
+            return
+
+        # un-toggles the previous box_held and updates the image
+        if self.box_held is not None:
+            self.box_held.toggled = False
+            self.box_held.update_img()
+
+        if nearest_box is not None:
+            # moves held number to empty box
+            if nearest_box.number is None and self.box_held is not None:
+                # set nearest_box
+                nearest_box.number = self.box_held.number
+                nearest_box.num_img = nearest_box.set_num_img()
+                nearest_box.update_img()
+
+                # fix previous box with number
+                self.box_held.set_number(None)
+                self.box_held.update_img()
+                self.set_box_held(None)
+
+            # drops box_held if not next to a box
+            else:
+                nearest_box.toggled = True
+                self.set_box_held(nearest_box)
+
+        # if player is not on a box - drop off
+        else:
+            self.set_box_held(None)
+
+    def set_box_held(self, new_box_held):
+        self.box_held = new_box_held
+        if self.box_held is not None:
+            self.box_held.update_img()
 
     # updates player
     def update(self):
@@ -178,7 +219,7 @@ class Button:
             self.button_surface.fill(self.fillColors['hover'])
             if pygame.mouse.get_pressed(num_buttons=3)[0]:
                 self.button_surface.fill(self.fillColors['clicked'])
-                if self.onePress:  # i have no idea what onePress and alreadyPress does but is ok
+                if self.onePress:  # have no idea what onePress and alreadyPress does but is ok
                     self.onclickFunction()
                 elif not self.alreadyPressed:
                     self.onclickFunction()
@@ -206,30 +247,6 @@ class Obstacle:
         self.rect = self.img.get_rect(topleft=(self.x, self.y))
         obstacles[obstacle_state.value].append(self)
 
-        # if obstacle_type == Obstacles.ROCK:
-        #     if randint(0, 1):
-        #         self.img = pygame.transform.flip(self.img, True, False)
-        # if obstacle_type == Obstacles.BOX:
-        #     self.img = pygame.image.load('images/crates/crate.png').convert_alpha()
-        #     self.img = pygame.transform.scale(self.img, default_obstacle_size)
-        #     if number is not None:
-        #         num_img = pygame.image.load('images/crates/three.png').convert_alpha()
-        #         if number == 4:
-        #             num_img = pygame.image.load('images/crates/four.png').convert_alpha()
-        #         num_img = pygame.transform.scale(num_img, default_obstacle_size)
-        #         img_surface = pygame.Surface(default_obstacle_size)
-        #         img_surface.blit(self.img, (0, 0))
-        #         img_surface.blit(num_img, (0, 0))
-        #         self.img = img_surface
-
-        # if scale:
-        #     self.img = pygame.transform.scale(self.img, (110, 110))
-        # else:
-        #     self.img = pygame.transform.scale(self.img, default_obstacle_size)
-        #
-        # self.rect = self.img.get_rect(topleft=(self.x, self.y))
-        # obstacles[obstacle_state.value].append(self)
-
     def process(self):
         # blit surface onto screen
         screen.blit(self.img, self.rect)
@@ -252,24 +269,55 @@ class Rock(Obstacle):
 
 
 class Box(Obstacle):
+    # obstacle_state - which state/level it is in
+    # number - the number the box holds
+    # spawned - if the box is spawned during each stage (True)
     def __init__(self, x, y, obstacle_state=None, number=None):
         super().__init__(x, y, obstacle_state)
         self.number = number
+        self.toggled = False
         self.img = pygame.image.load('images/crates/crate.png').convert_alpha()
         self.img = pygame.transform.scale(self.img, default_obstacle_size)
+        self.num_img = self.set_num_img()
 
-        if number is not None:
-            num_img = pygame.image.load('images/crates/three.png').convert_alpha()
-            if number == 4:
-                num_img = pygame.image.load('images/crates/four.png').convert_alpha()
-
-            num_img = pygame.transform.scale(num_img, default_obstacle_size)
+        if self.number is not None:
             img_surface = pygame.Surface(default_obstacle_size)
             img_surface.blit(self.img, (0, 0))
-            img_surface.blit(num_img, (0, 0))
+            img_surface.blit(self.num_img, (0, 0))
             self.img = img_surface
 
         self.rect = self.img.get_rect(topleft=(self.x, self.y))
+
+    def set_number(self, number):
+        self.number = number
+        self.num_img = self.set_num_img()
+
+    def set_num_img(self):
+        num_img = None
+        if self.number:
+            if self.number == 1:
+                num_img = pygame.image.load('images/crates/one.png').convert_alpha()
+            if self.number == 3:
+                num_img = pygame.image.load('images/crates/three.png').convert_alpha()
+            if self.number == 4:
+                num_img = pygame.image.load('images/crates/four.png').convert_alpha()
+            num_img = pygame.transform.scale(num_img, default_obstacle_size)
+        return num_img
+
+    def update_img(self):
+        if self.number:
+            if self.toggled:
+                self.img = pygame.image.load('images/crates/toggled-crate.png')
+            else:
+                self.img = pygame.image.load('images/crates/crate.png')
+            self.img = pygame.transform.scale(self.img, default_obstacle_size)
+            img_surface = pygame.Surface(default_obstacle_size)
+            img_surface.blit(self.img, (0, 0))
+            img_surface.blit(self.num_img, (0, 0))
+            self.img = img_surface
+        else:
+            self.img = pygame.image.load('images/crates/crate.png')
+            self.img = pygame.transform.scale(self.img, default_obstacle_size)
 
 
 # uses buttons array and creates an array for each state inside the buttons array
@@ -328,8 +376,9 @@ def display_arraylist(player):
         rock1 = Rock(65, 100, States.ARRAYLIST)
         rock2 = Rock(175, 155, States.ARRAYLIST, True)
         crate1 = Box(285, 265, States.ARRAYLIST, 3)
-        crate1 = Box(340, 265, States.ARRAYLIST, 4)
-        crate1 = Box(395, 265, States.ARRAYLIST)
+        crate2 = Box(340, 265, States.ARRAYLIST, 4)
+        crate3 = Box(395, 265, States.ARRAYLIST, None)
+        crate4 = Box(505, 100, States.ARRAYLIST, 1)
     display_obstacles(obstacles[States.ARRAYLIST.value])
 
 
@@ -346,8 +395,8 @@ create_button_and_obst_array()
 state = States.INTRO
 
 # fonts
-title_font = pygame.font.Font('font/Pixeltype.ttf', 100)
-button_font = pygame.font.Font('font/Pixeltype.ttf', 64)
+title_font = pygame.font.Font('font/Pixel-type.ttf', 100)
+button_font = pygame.font.Font('font/Pixel-type.ttf', 64)
 
 # Code for creating window and its features
 background_colour = (0, 0, 0)
